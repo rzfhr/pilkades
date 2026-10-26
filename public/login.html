@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login - Quick Count Pilkades</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: linear-gradient(135deg, #1e3c72, #2a5298); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+  .login-card { background: #fff; padding: 40px 32px; border-radius: 18px; width: 100%; max-width: 380px; box-shadow: 0 20px 50px rgba(0,0,0,.3); text-align: center; }
+  .login-card h1 { font-size: 1.4rem; color: #1e3c72; margin-bottom: 8px; }
+  input { width: 100%; padding: 13px 15px; border: 1.5px solid #ddd; border-radius: 10px; font-size: 1rem; margin-bottom: 15px; }
+  input:focus { outline: none; border-color: #2a5298; }
+  button { width: 100%; padding: 13px; background: #2a5298; color: #fff; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; }
+  button:hover { background: #1e3c72; }
+  .error { color: #e74c3c; font-size: .85rem; margin-bottom: 12px; min-height: 20px; }
+  a { color: #2a5298; text-decoration: none; font-size: .85rem; display: inline-block; margin-top: 15px; }
+</style>
+</head>
+<body>
+<div class="login-card">
+  <h1>🗳️ Login Petugas / Admin</h1>
+  <div class="error" id="err"></div>
+  <input type="text" id="user" placeholder="Username" autofocus>
+  <input type="password" id="pwd" placeholder="Password">
+  <button id="btn" onclick="login()">Masuk</button>
+  <a href="/">← Kembali ke Halaman Publik</a>
+</div>
+<script>
+async function login() {
+  const btn = document.getElementById('btn');
+  const user = document.getElementById('user').value;
+  const pwd = document.getElementById('pwd').value;
+  const err = document.getElementById('err');
+  if (!user || !pwd) return err.textContent = 'Isi username & password';
+  btn.disabled = true; btn.textContent = 'Memproses...';
+  err.textContent = '';
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ username: user, password: pwd })
+    });
+    const j = await res.json();
+    if (res.ok) {
+      if (j.role === 'admin') location.href = '/admin.html';
+      else location.href = '/input-tps.html';
+    } else {
+      err.textContent = j.error || 'Login gagal';
+      btn.disabled = false; btn.textContent = 'Masuk';
+    }
+  } catch (e) {
+    err.textContent = 'Koneksi error';
+    btn.disabled = false; btn.textContent = 'Masuk';
+  }
+}
+document.getElementById('pwd').addEventListener('keydown', e => { if (e.key === 'Enter') login(); });
+fetch('/api/session').then(r => r.json()).then(j => {
+  if (j.login) location.href = j.role === 'admin' ? '/admin.html' : '/input-tps.html';
+});
+</script>
+</body>
+</html>
