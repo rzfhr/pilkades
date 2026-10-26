@@ -1,1 +1,249 @@
 
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hasil Quick Count Pilkades</title>
+<link rel="manifest" href="/manifest.json">
+<script src="/socket.io/socket.io.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', Tahoma, sans-serif; background: linear-gradient(135deg, #1e3c72, #2a5298); min-height: 100vh; padding: 20px; color: #333; }
+  .container { max-width: 1200px; margin: 0 auto; }
+  header { text-align: center; color: #fff; margin-bottom: 20px; }
+  header h1 { font-size: 1.6rem; }
+  .badge-live { display: inline-block; background: #27ae60; color: #fff; padding: 3px 10px; border-radius: 20px; font-size: .7rem; margin-left: 8px; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
+  .card { background: #fff; border-radius: 14px; padding: 22px; margin-bottom: 20px; box-shadow: 0 8px 24px rgba(0,0,0,.2); }
+  .card h2 { font-size: 1.1rem; margin-bottom: 15px; color: #1e3c72; border-left: 4px solid #2a5298; padding-left: 10px; }
+  .total-info { background: #eef4ff; padding: 14px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+  .total-info div { font-size: .85rem; } .total-info strong { color: #1e3c72; font-size: 1.05rem; }
+  .chart-container { position: relative; height: 320px; margin-top: 15px; }
+  #peta { height: 400px; border-radius: 10px; }
+  
+  /* Desain Kartu Kandidat */
+  .hasil-item { padding: 20px; border-radius: 12px; background: #fff; margin-bottom: 15px; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-left: 6px solid #ccc; }
+  .progress-info { display: flex; justify-content: space-between; font-size: .85rem; margin-bottom: 6px; font-weight: 600; }
+  .progress-bar { height: 14px; background: #eee; border-radius: 10px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #27ae60, #2ecc71); width: 0%; transition: width .4s ease; border-radius: 10px; }
+  
+  /* Tabel Responsif */
+  .table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: .85rem; min-width: 100%; white-space: nowrap; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; }
+  th { background: #f0f4fa; color: #1e3c72; font-size: .8rem; text-transform: uppercase; }
+  tr:hover td { background: #fafbfd; }
+
+    /* Tombol Login Melayang */
+  .btn-login-float {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 30px;
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 0.9rem;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    transition: 0.2s;
+    z-index: 1000;
+  }
+  .btn-login-float:hover {
+    background: #fff;
+    color: #1e3c72;
+  }
+  
+</style>
+</head>
+<body>
+    <!-- Tombol Login Melayang -->
+<a href="/login.html" class="btn-login-float">🔐 Login Petugas / Admin</a>
+
+<div class="container">
+<div class="container">
+  <header>
+    <h1>🗳️ Hasil Quick Count Pilkades <span class="badge-live">LIVE</span></h1>
+    <p id="judulDesa" style="opacity:.85;font-size:.9rem;margin-top:5px">Memuat...</p>
+  </header>
+
+  <div class="card">
+    <h2>Progress Masuk</h2>
+    <div class="progress-info">
+      <span id="progressLabel">0 / 0 TPS</span>
+      <span id="progressPct">0%</span>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+
+  <div class="card">
+    <h2>Perolehan Suara Sementara</h2>
+    <div class="total-info">
+      <div>TPS Masuk: <strong id="totTps">0</strong></div>
+      <div>Total DPT: <strong id="totDpt">0</strong></div>
+      <div>Suara Sah: <strong id="totSah">0</strong></div>
+      <div>Suara Tidak Sah: <strong id="totTidakSah">0</strong></div>
+      <div>Partisipasi: <strong id="totPartisipasi">0%</strong></div>
+    </div>
+    <div class="chart-container"><canvas id="chartHasil"></canvas></div>
+    <div id="hasilList" style="margin-top:20px"></div>
+  </div>
+
+  <div class="card">
+    <h2>Detail Data TPS</h2>
+    <div class="table-responsive">
+      <table id="tabelTps">
+        <thead><tr id="theadRow"></tr></thead>
+        <tbody id="tbodyTps"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Peta Sebaran TPS</h2>
+    <div id="peta"></div>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let state = { desa:'', jumlahTps:0, kandidat:[], dataTps:[] };
+let chart = null, peta = null, markers = [];
+
+socket.on('state', s => { state = s; render(); });
+
+function render() {
+  document.getElementById('judulDesa').textContent = state.desa || 'Desa';
+  
+  const totalTps = state.jumlahTps || 0;
+  const masuk = state.dataTps.length;
+  const pct = totalTps > 0 ? Math.min(100, (masuk / totalTps) * 100) : 0;
+  document.getElementById('progressLabel').textContent = masuk + ' / ' + totalTps + ' TPS';
+  document.getElementById('progressPct').textContent = pct.toFixed(1) + '%';
+  document.getElementById('progressFill').style.width = pct + '%';
+
+  const totDpt = state.dataTps.reduce((a, t) => a + t.dpt, 0);
+  const totSah = state.dataTps.reduce((a, t) => a + t.suara.reduce((x, y) => x + y, 0), 0);
+  const totTidakSah = state.dataTps.reduce((a, t) => a + (t.tidakSah || 0), 0);
+  const totalMasuk = totSah + totTidakSah;
+  const partisipasi = totDpt > 0 ? (totalMasuk / totDpt) * 100 : 0;
+  
+  document.getElementById('totTps').textContent = masuk;
+  document.getElementById('totDpt').textContent = totDpt.toLocaleString('id-ID');
+  document.getElementById('totSah').textContent = totSah.toLocaleString('id-ID');
+  document.getElementById('totTidakSah').textContent = totTidakSah.toLocaleString('id-ID');
+  document.getElementById('totPartisipasi').textContent = partisipasi.toFixed(1) + '%';
+
+  const perKandidat = state.kandidat.map(() => 0);
+  state.dataTps.forEach(t => t.suara.forEach((s, i) => perKandidat[i] += s));
+
+  const warnaKandidat = state.kandidat.map((k, i) => k.warna || ['#2a5298','#27ae60','#e67e22','#8e44ad','#e74c3c'][i % 5]);
+  const labels = state.kandidat.map((k, i) => k.nama || 'K' + (i + 1));
+  
+  if (!chart) {
+    chart = new Chart(document.getElementById('chartHasil'), {
+      type: 'bar',
+      data: { labels, datasets: [{ label: 'Suara', data: perKandidat, backgroundColor: warnaKandidat, borderRadius: 8 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { precision: 0 } } } }
+    });
+  } else {
+    chart.data.labels = labels;
+    chart.data.datasets[0].data = perKandidat;
+    chart.data.datasets[0].backgroundColor = warnaKandidat;
+    chart.update();
+  }
+
+  // Render List Hasil (Desain Baru dengan Foto Besar)
+  const hasilBox = document.getElementById('hasilList');
+  if (!state.kandidat.length || masuk === 0) {
+    hasilBox.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">Belum ada data masuk</div>';
+  } else {
+    const urut = state.kandidat.map((k, i) => ({
+      ...k, no: i + 1, suara: perKandidat[i], pct: totSah > 0 ? (perKandidat[i] / totSah) * 100 : 0
+    })).sort((a, b) => b.suara - a.suara);
+
+    hasilBox.innerHTML = urut.map((k, idx) => {
+      const avatar = k.foto 
+        ? `<img src="${k.foto}" style="width:80px; height:80px; border-radius:12px; object-fit:cover; margin-right:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); border: 3px solid ${k.warna};">`
+        : `<div style="width:80px; height:80px; border-radius:12px; background:${k.warna}; color:#fff; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:2rem; margin-right:20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">${k.no}</div>`;
+
+      return `
+        <div class="hasil-item" style="border-left-color: ${k.warna};">
+          ${avatar}
+          <div style="flex:1;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-end; margin-bottom:10px; flex-wrap:wrap; gap:10px;">
+              <div>
+                <span style="font-size:1.2rem; font-weight:800; color:#1e3c72;">
+                  ${idx === 0 && k.suara > 0 ? '👑 ' : ''}No. ${k.no} — ${k.nama}
+                </span>
+              </div>
+              <div style="text-align:right;">
+                <span style="font-size:1.5rem; font-weight:800; color:${k.warna}; display:block; line-height:1;">
+                  ${k.suara.toLocaleString('id-ID')}
+                </span>
+                <span style="font-size:0.85rem; color:#666;">suara (${k.pct.toFixed(1)}%)</span>
+              </div>
+            </div>
+            <div class="bar-bg" style="height: 12px; background: #f0f0f0; border-radius: 6px; overflow:hidden;">
+              <div class="bar-fill" style="width:${k.pct}%; background:${k.warna}; height:100%; transition: width 0.5s ease;"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Tabel TPS (Full Text)
+  const thead = document.getElementById('theadRow');
+  let thHtml = '<th>TPS</th><th>DPT</th>';
+  state.kandidat.forEach((k, i) => {
+    thHtml += `<th>${k.nama || 'Kandidat ' + (i+1)}</th>`;
+  });
+  thHtml += '<th>Tidak Sah</th><th>Suara Sah</th>';
+  thead.innerHTML = thHtml;
+
+  const tbody = document.getElementById('tbodyTps');
+  if (state.dataTps.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="${state.kandidat.length + 4}" style="text-align:center;color:#999;padding:20px;">Belum ada data TPS</td></tr>`;
+  } else {
+    tbody.innerHTML = state.dataTps.map(t => {
+      let row = `<td><strong>${t.no}</strong></td><td>${t.dpt}</td>`;
+      t.suara.forEach(s => row += `<td>${s}</td>`);
+      row += `<td style="color:#e74c3c; font-weight:bold;">${t.tidakSah || 0}</td>`;
+      row += `<td>${t.suara.reduce((a,b)=>a+b,0)}</td>`;
+      return `<tr>${row}</tr>`;
+    }).join('');
+  }
+
+  if (peta) renderMarkers();
+}
+
+// Peta
+function initPeta() {
+  if (peta) return;
+  peta = L.map('peta').setView([-2.5, 118], 5);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OSM' }).addTo(peta);
+  renderMarkers();
+}
+function renderMarkers() {
+  if (!peta) return;
+  markers.forEach(m => peta.removeLayer(m));
+  markers = [];
+  const withLoc = state.dataTps.filter(t => t.lokasi);
+  withLoc.forEach(t => {
+    const m = L.marker([t.lokasi.lat, t.lokasi.lng]).addTo(peta)
+      .bindPopup(`<strong>TPS ${t.no}</strong><br>DPT: ${t.dpt}<br>Suara Sah: ${t.suara.reduce((a,b)=>a+b,0)}<br>Tidak Sah: ${t.tidakSah || 0}`);
+    markers.push(m);
+  });
+  if (withLoc.length > 0) peta.fitBounds(L.featureGroup(markers).getBounds().pad(0.2));
+}
+setTimeout(initPeta, 500);
+</script>
+</body>
+</html>
