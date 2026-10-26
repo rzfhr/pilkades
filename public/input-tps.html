@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Input Data TPS</title>
+<script src="/socket.io/socket.io.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', sans-serif; background: #f0f4fa; min-height: 100vh; padding: 20px; }
+  .container { max-width: 600px; margin: 0 auto; }
+  .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+  .header h1 { font-size: 1.2rem; color: #1e3c72; }
+  .btn-logout { background: #e74c3c; color: #fff; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-weight: 600; font-size: .85rem; }
+  .card { background: #fff; border-radius: 14px; padding: 22px; box-shadow: 0 4px 15px rgba(0,0,0,.05); }
+  .card h2 { font-size: 1.05rem; margin-bottom: 15px; color: #1e3c72; border-left: 4px solid #2a5298; padding-left: 10px; }
+  label { font-size: .85rem; font-weight: 600; display: block; margin-bottom: 5px; color: #555; margin-top: 12px; }
+  input { width: 100%; padding: 12px 15px; border: 1.5px solid #ddd; border-radius: 8px; font-size: 1rem; }
+  input:focus { outline: none; border-color: #2a5298; }
+  input:disabled { background: #eef4ff; color: #2a5298; font-weight: 700; font-size: 1.1rem; border-color: #2a5298; }
+  .btn { width: 100%; padding: 14px; background: #27ae60; color: #fff; border: none; border-radius: 8px; font-size: 1rem; font-weight: 600; cursor: pointer; margin-top: 20px; }
+  .btn:hover { background: #1e8449; }
+  .info { background: #fff3cd; padding: 12px; border-radius: 8px; font-size: .85rem; color: #856404; margin-bottom: 15px; border-left: 4px solid #ffc107; }
+  .kandidat-box { display: flex; align-items: center; margin-top: 15px; background: #f9f9f9; padding: 10px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="header">
+    <h1>📝 Input Data TPS</h1>
+    <button class="btn-logout" onclick="logout()">Logout</button>
+  </div>
+
+  <div class="info" id="infoAkun">Memuat data...</div>
+
+  <div class="card">
+    <h2>Form Input Suara</h2>
+    <label>Nomor TPS Anda</label>
+    <input type="text" id="noTps" disabled>
+
+    <label>Jumlah DPT (Pemilih Terdaftar)</label>
+    <input type="number" id="dpt" placeholder="Contoh: 300" min="0">
+
+    <div id="formKandidat"></div>
+
+    <label>Suara Tidak Sah</label>
+    <input type="number" id="tidakSah" placeholder="0" min="0">
+
+    <button class="btn" onclick="kirimData()">💾 Kirim Data Suara</button>
+  </div>
+</div>
+
+<script>
+const socket = io();
+let state = { kandidat: [], dataTps: [] };
+let sesi = null;
+
+fetch('/api/session').then(r => r.json()).then(j => {
+  if (!j.login) return location.href = '/login.html';
+  if (j.role === 'admin') return location.href = '/admin.html';
+  sesi = j;
+  document.getElementById('infoAkun').textContent = `Anda login sebagai ${j.username} (Petugas TPS ${j.tpsNo})`;
+  document.getElementById('noTps').value = j.tpsNo;
+});
+
+socket.on('state', s => { state = s; renderForm(); cekDataTersimpan(); });
+
+function renderForm() {
+  if (!sesi || !state.kandidat || state.kandidat.length === 0) return;
+  const box = document.getElementById('formKandidat');
+  if (box.children.length > 0) return;
+
+  let html = '';
+  state.kandidat.forEach((k, i) => {
+    const fotoHtml = k.foto 
+      ? `<img src="${k.foto}" style="width:40px; height:40px; object-fit:cover; border-radius:50%; margin-right:10px;">`
+      : `<div style="width:40px; height:40px; background:${k.warna || '#ccc'}; border-radius:50%; margin-right:10px; display:flex; align-items:center; justify-content:center; color:#fff; font-weight:bold;">${i+1}</div>`;
+
+    html += `
+      <div class="kandidat-box" style="border-left: 4px solid ${k.warna || '#2a5298'};">
+        ${fotoHtml}
+        <div style="flex:1;">
+          <label style="margin-top:0">${k.nama || 'Kandidat ' + (i+1)}</label>
+          <input type="number" class="input-suara" data-idx="${i}" placeholder="0" min="0" style="margin-top:5px;">
+        </div>
+      </div>
+    `;
+  });
+  box.innerHTML = html;
+  cekDataTersimpan();
+}
+
+function cekDataTersimpan() {
+  if (!sesi) return;
+  const data = state.dataTps.find(t => t.no === sesi.tpsNo);
+  if (data) {
+    document.getElementById('dpt').value = data.dpt;
+    document.querySelectorAll('.input-suara').forEach(inp => {
+      inp.value = data.suara[inp.dataset.idx] || 0;
+    });
+    document.getElementById('tidakSah').value = data.tidakSah || 0;
+    document.getElementById('infoAkun').textContent = `Anda login sebagai ${sesi.username}. Data TPS ${sesi.tpsNo} sudah diinput. Mengubah form akan memperbarui data.`;
+  }
+}
+
+async function kirimData() {
+  const dpt = parseInt(document.getElementById('dpt').value);
+  const tidakSah = parseInt(document.getElementById('tidakSah').value) || 0;
+  if (isNaN(dpt) || dpt <= 0) return alert('Isi Jumlah DPT dengan benar!');
+  
+  const suara = [];
+  document.querySelectorAll('.input-suara').forEach(inp => {
+    suara.push(parseInt(inp.value) || 0);
+  });
+
+  const totalSah = suara.reduce((a,b)=>a+b,0);
+  if ((totalSah + tidakSah) > dpt) {
+    return alert(`Gagal! Total suara sah (${totalSah}) + tidak sah (${tidakSah}) melebihi DPT (${dpt}).`);
+  }
+
+  if (!confirm('Kirim data ini? Pastikan sudah sesuai dengan formulir C1.')) return;
+
+  const res = await fetch('/api/tps', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ no: sesi.tpsNo, dpt, suara, tidakSah })
+  });
+  
+  if (res.ok) alert('✅ Data berhasil dikirim!');
+  else {
+    const j = await res.json();
+    alert('Gagal: ' + (j.error || 'Terjadi kesalahan'));
+  }
+}
+
+async function logout() {
+  await fetch('/api/logout', { method: 'POST' });
+  location.href = '/login.html';
+}
+</script>
+</body>
+</html>
