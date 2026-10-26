@@ -1,0 +1,62 @@
+{
+  "desa": "Desa Darek",
+  "jumlahTps": 5,
+  "kandidat": [
+    {
+      "nama": "H. HAMBALI",
+      "warna": "#2a5298",
+      "foto": "/uploads/kandidat_1792986169574.jpeg"
+    },
+    {
+      "nama": "L. RAMDANI HIDAYAT",
+      "warna": "#27ae60",
+      "foto": "/uploads/kandidat_1792986176106.jpeg"
+    },
+    {
+      "nama": "L. BUDI KURNIAWAN",
+      "warna": "#e67e22",
+      "foto": "/uploads/kandidat_1792986180275.jpeg"
+    },
+    {
+      "nama": "RASIDI",
+      "warna": "#8e44ad",
+      "foto": "/uploads/kandidat_1792986579618.jpg"
+    },
+    {
+      "nama": "SAMSUL BASRI",
+      "warna": "#e74c3c",
+      "foto": "/uploads/kandidat_1792986597470.jpg"
+    }
+  ],
+  "dataTps": [
+    {
+      "no": 1,
+      "dpt": 300,
+      "suara": [
+        100,
+        100,
+        100
+      ],
+      "tidakSah": 0,
+      "lokasi": null,
+      "waktu": "2026-10-26T03:44:54.765Z"
+    }
+  ],
+  "users": {
+    "admin": {
+      "pass": "$2a$10$kh.uBy7KmDhPDpAn7gZ9fOV9waKraBZebCI8Y5IcFpHdBBUrjBy/K",
+      "role": "admin"
+    },
+    "tps1": {
+      "pass": "$2a$10$JEYBP4CpzfQfjAa9swr98een5v4MdPMhq7ZuyQ0QTJRlM0II52l/e",
+      "role": "petugas",
+      "tpsNo": 1
+    }
+  },
+  "log": [
+    {
+      "waktu": "2026-10-26T03:44:54.765Z",
+      "aksi": "tps1 INPUT TPS 1"
+    }
+  ]
+}
